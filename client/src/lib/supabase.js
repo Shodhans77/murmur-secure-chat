@@ -1,14 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
 
 const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Modern publishable keys can be rotated independently. Keep the legacy
+// variable as a fallback for existing local setups only.
+const publishableKey =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const isSupabaseConfigured = Boolean(url && anonKey);
+export const isSupabaseConfigured = Boolean(url && publishableKey);
 
-// Only the anon key belongs in a browser bundle. Server-only keys are kept
-// exclusively in server/.env and must never begin with VITE_.
+// Only a Supabase publishable key belongs in a browser bundle. Server-only
+// keys are kept exclusively in server/.env and must never begin with VITE_.
 export const supabase = isSupabaseConfigured
-  ? createClient(url, anonKey, {
+  ? createClient(url, publishableKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,

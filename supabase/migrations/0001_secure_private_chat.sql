@@ -293,14 +293,14 @@ create policy "Members read only permitted private media"
   on storage.objects for select to authenticated
   using (
     bucket_id = 'chat-media'
-    and (owner_id = auth.uid() or public.can_access_attachment(name))
+    and (owner_id = auth.uid()::text or public.can_access_attachment(name))
   );
 
 create policy "Users remove only unposted media they own"
   on storage.objects for delete to authenticated
   using (
     bucket_id = 'chat-media'
-    and owner_id = auth.uid()
+    and owner_id = auth.uid()::text
     and public.is_unattached(name)
   );
 

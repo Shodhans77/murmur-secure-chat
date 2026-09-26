@@ -6,10 +6,10 @@ approved photos or videos from a device gallery.
 
 ## Local setup
 
-1. Apply supabase/migrations/0001_secure_private_chat.sql in the Supabase SQL
-   editor.
+1. Apply every SQL file in supabase/migrations in filename order. This builds
+   the private chat schema and its later security hardening.
 2. Copy client/.env.example to client/.env and add the Supabase project URL
-   and anon key.
+   and publishable key.
 3. Copy server/.env.example to server/.env and add the project URL and
    server-only service role key. Set CLIENT_ORIGIN to the Vite URL.
 4. In two terminals run:
@@ -33,7 +33,7 @@ that remains.
 Deploy this repository as two Vercel projects:
 
 1. **murmur-secure-chat-web** — set the Vercel root directory to client.
-   Set VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, and VITE_SERVER_URL.
+   Set VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY, and VITE_SERVER_URL.
 2. **murmur-secure-chat-api** — set the Vercel root directory to server.
    Set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and CLIENT_ORIGIN.
 
