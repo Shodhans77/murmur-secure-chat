@@ -1,3 +1,4 @@
+import React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
