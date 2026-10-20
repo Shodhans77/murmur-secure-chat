@@ -200,7 +200,9 @@ function ChatApp({ session }) {
   useEffect(() => {
     const liveSocket = io(SERVER_URL, {
       auth: { token: session.access_token },
-      transports: ["websocket"],
+      // Start with HTTP polling so mobile networks and serverless hosts can
+      // connect reliably, then upgrade to WebSocket when it is available.
+      transports: ["polling", "websocket"],
       timeout: 10_000,
       reconnectionAttempts: 5,
     });
@@ -213,7 +215,7 @@ function ChatApp({ session }) {
       setMessages(hydrated);
     };
     liveSocket.on("connect", () => { setConnection("Secure connection active"); liveSocket.emit("list_rooms"); });
-    liveSocket.on("connect_error", () => { setConnection("Secure connection unavailable"); setNotice("The chat server could not verify this session. Try signing in again."); });
+    liveSocket.on("connect_error", () => { setConnection("Secure connection unavailable"); setNotice("The chat connection could not start. It will retry automatically; check your connection if it continues."); });
     liveSocket.on("room_list", setRooms);
     liveSocket.on("room_joined", (nextRoom) => { setRoom(nextRoom); setRoomInviteCode(nextRoom.inviteCode || ""); setMessages([]); setNotice(""); setSidebarOpen(false); });
     liveSocket.on("room_members", setMembers);
