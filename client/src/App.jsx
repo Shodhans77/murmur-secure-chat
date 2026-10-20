@@ -1,5 +1,4 @@
-import React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 
@@ -176,6 +175,7 @@ function ChatApp({ session }) {
   const [pendingFiles, setPendingFiles] = useState([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const typingTimeout = useRef(null);
@@ -215,7 +215,7 @@ function ChatApp({ session }) {
     liveSocket.on("connect", () => { setConnection("Secure connection active"); liveSocket.emit("list_rooms"); });
     liveSocket.on("connect_error", () => { setConnection("Secure connection unavailable"); setNotice("The chat server could not verify this session. Try signing in again."); });
     liveSocket.on("room_list", setRooms);
-    liveSocket.on("room_joined", (nextRoom) => { setRoom(nextRoom); setRoomInviteCode(nextRoom.inviteCode || ""); setMessages([]); setNotice(""); });
+    liveSocket.on("room_joined", (nextRoom) => { setRoom(nextRoom); setRoomInviteCode(nextRoom.inviteCode || ""); setMessages([]); setNotice(""); setSidebarOpen(false); });
     liveSocket.on("room_members", setMembers);
     liveSocket.on("message_history", receiveHistory);
     liveSocket.on("receive_message", receiveMessage);
@@ -349,13 +349,13 @@ function ChatApp({ session }) {
 
   return (
     <main className="app-shell">
-      <aside className="room-sidebar">
+      <aside className={"room-sidebar " + (sidebarOpen ? "mobile-open" : "")} id="mobile-room-menu">
         <div className="sidebar-brand"><div className="brand-mark">M</div><span>murmur</span></div>
         <div className="connection-state"><span className={"connection-dot " + (connection === "Secure connection active" ? "active" : "")} />{connection}</div>
         <section className="room-section" aria-labelledby="your-rooms">
           <div className="section-heading"><h2 id="your-rooms">Your rooms</h2></div>
           <div className="room-list">
-            {rooms.length ? rooms.map((savedRoom) => <button className={"room-link " + (room?.id === savedRoom.id ? "selected" : "")} key={savedRoom.id} onClick={() => socket?.emit("join_room", { roomId: savedRoom.id })} type="button"><span>#</span>{savedRoom.name}</button>) : <p className="empty-rooms">No rooms yet. Create one below.</p>}
+            {rooms.length ? rooms.map((savedRoom) => <button className={"room-link " + (room?.id === savedRoom.id ? "selected" : "")} key={savedRoom.id} onClick={() => { setSidebarOpen(false); socket?.emit("join_room", { roomId: savedRoom.id }); }} type="button"><span>#</span>{savedRoom.name}</button>) : <p className="empty-rooms">No rooms yet. Create one below.</p>}
           </div>
         </section>
         <form className="compact-form" onSubmit={createRoom}>
@@ -372,10 +372,14 @@ function ChatApp({ session }) {
           <button aria-label="Sign out" className="icon-button" onClick={() => supabase.auth.signOut()} type="button">↗</button>
         </div>
       </aside>
+      <button aria-label="Close rooms menu" className={"sidebar-backdrop " + (sidebarOpen ? "visible" : "")} onClick={() => setSidebarOpen(false)} tabIndex={sidebarOpen ? 0 : -1} type="button" />
       <section className="chat-area">
         {room ? <>
           <header className="chat-header">
-            <div><p className="eyebrow">Private room</p><h1># {room.name}</h1><p>{members.length} trusted {members.length === 1 ? "member" : "members"} in this room</p></div>
+            <div className="chat-header-leading">
+              <button aria-controls="mobile-room-menu" aria-expanded={sidebarOpen} className="mobile-rooms-button" onClick={() => setSidebarOpen(true)} type="button"><span aria-hidden="true">☰</span> Rooms</button>
+              <div><p className="eyebrow">Private room</p><h1># {room.name}</h1><p>{members.length} trusted {members.length === 1 ? "member" : "members"} in this room</p></div>
+            </div>
             {roomInviteCode && <button className="share-button" onClick={copyInvite} type="button">Copy private invite</button>}
           </header>
           <div className="safety-banner"><span className="safety-icon" aria-hidden="true">⌁</span><p><strong>Keep it kind and private.</strong> You can block or report any message. Only accepted room members can view shared media.</p></div>
@@ -415,4 +419,3 @@ export default function App() {
   if (!session) return <AuthScreen />;
   return <ChatApp session={session} />;
 }
-
