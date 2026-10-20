@@ -198,14 +198,8 @@ function ChatApp({ session }) {
   }
 
   useEffect(() => {
-    const liveSocket = io(SERVER_URL, {
-      auth: { token: session.access_token },
-      // Start with HTTP polling so mobile networks and serverless hosts can
-      // connect reliably, then upgrade to WebSocket when it is available.
-      transports: ["polling", "websocket"],
-      timeout: 10_000,
-      reconnectionAttempts: 5,
-    });
+    let disposed = false;
+    let liveSocket;
     const receiveMessage = async (rawMessage) => {
       const message = await withSignedUrls(rawMessage);
       setMessages((previous) => [...previous, message]);
@@ -214,18 +208,41 @@ function ChatApp({ session }) {
       const hydrated = await Promise.all(rawMessages.map(withSignedUrls));
       setMessages(hydrated);
     };
-    liveSocket.on("connect", () => { setConnection("Secure connection active"); liveSocket.emit("list_rooms"); });
-    liveSocket.on("connect_error", () => { setConnection("Secure connection unavailable"); setNotice("The chat connection could not start. It will retry automatically; check your connection if it continues."); });
-    liveSocket.on("room_list", setRooms);
-    liveSocket.on("room_joined", (nextRoom) => { setRoom(nextRoom); setRoomInviteCode(nextRoom.inviteCode || ""); setMessages([]); setNotice(""); setSidebarOpen(false); });
-    liveSocket.on("room_members", setMembers);
-    liveSocket.on("message_history", receiveHistory);
-    liveSocket.on("receive_message", receiveMessage);
-    liveSocket.on("user_typing", ({ displayName, isTyping }) => setTypingUser(isTyping ? displayName : ""));
-    liveSocket.on("app_error", ({ message }) => setNotice(message));
-    liveSocket.on("disconnect", () => setConnection("Reconnecting securely…"));
-    setSocket(liveSocket);
-    return () => { liveSocket.disconnect(); setSocket(null); };
+
+    async function connect() {
+      // Refresh after an offline/paused backend so Socket.IO never receives a
+      // stale access token from browser storage.
+      const refreshed = await supabase.auth.refreshSession();
+      if (disposed) return;
+      if (refreshed.error || !refreshed.data.session?.access_token) {
+        setConnection("Sign in again to reconnect");
+        setNotice("Your secure session expired while the service was offline. Sign out, then sign in again.");
+        return;
+      }
+
+      liveSocket = io(SERVER_URL, {
+        auth: { token: refreshed.data.session.access_token },
+        // Start with HTTP polling so mobile networks and serverless hosts can
+        // connect reliably, then upgrade to WebSocket when it is available.
+        transports: ["polling", "websocket"],
+        timeout: 10_000,
+        reconnectionAttempts: 5,
+      });
+      liveSocket.on("connect", () => { setConnection("Secure connection active"); liveSocket.emit("list_rooms"); });
+      liveSocket.on("connect_error", () => { setConnection("Secure connection unavailable"); setNotice("The chat connection could not start. It will retry automatically; check your connection if it continues."); });
+      liveSocket.on("room_list", setRooms);
+      liveSocket.on("room_joined", (nextRoom) => { setRoom(nextRoom); setRoomInviteCode(nextRoom.inviteCode || ""); setMessages([]); setNotice(""); setSidebarOpen(false); });
+      liveSocket.on("room_members", setMembers);
+      liveSocket.on("message_history", receiveHistory);
+      liveSocket.on("receive_message", receiveMessage);
+      liveSocket.on("user_typing", ({ displayName, isTyping }) => setTypingUser(isTyping ? displayName : ""));
+      liveSocket.on("app_error", ({ message }) => setNotice(message));
+      liveSocket.on("disconnect", () => setConnection("Reconnecting securely…"));
+      setSocket(liveSocket);
+    }
+
+    connect();
+    return () => { disposed = true; liveSocket?.disconnect(); setSocket(null); };
   }, [session.access_token]);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, typingUser]);
@@ -401,7 +418,7 @@ function ChatApp({ session }) {
             </div>
             <p className="composer-help">JPG, PNG, WebP, MP4, or WebM · up to 25 MB each · {MAX_ATTACHMENTS} files per message</p>
           </form>
-        </> : <section className="room-welcome"><CreatureGarden /><p className="eyebrow">Your safe space starts here</p><h1>Create a room or join with a private invite.</h1><p>Rooms are not public. An authenticated member or a valid invite code is required before anyone can enter.</p></section>}
+        </> : <section className="room-welcome"><button aria-controls="mobile-room-menu" aria-expanded={sidebarOpen} className="mobile-rooms-button room-welcome-menu" onClick={() => setSidebarOpen(true)} type="button"><span aria-hidden="true">☰</span> Rooms</button><CreatureGarden /><p className="eyebrow">Your safe space starts here</p><h1>Create a room or join with a private invite.</h1><p>Rooms are not public. An authenticated member or a valid invite code is required before anyone can enter.</p></section>}
       </section>
     </main>
   );
